@@ -1,0 +1,48 @@
+{
+    "name": "korean-name-generator",
+    "version": "1.0.0",
+    "description": "Transform English names into beautiful Korean names using AI - A Next.js application powered by Google Gemini",
+    "author": "Your Name <your.email@example.com>",
+    "keywords": [
+        "korean-names",
+        "name-generator",
+        "ai-translation",
+        "google-gemini",
+        "nextjs",
+        "korean-culture",
+        "name-converter"
+    ],
+    "homepage": "https://korean-name-generator.vercel.app",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/yourusername/korean-name-generator"
+    },
+    "bugs": {
+        "url": "https://github.com/yourusername/korean-name-generator/issues"
+    },
+    "license": "MIT",
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint",
+        "export": "next export"
+    },
+    "dependencies": {
+        "@google/generative-ai": "^0.18.0",
+        "next": "14.0.0",
+        "react": "18.2.0",
+        "react-dom": "18.2.0"
+    },
+    "devDependencies": {
+        "autoprefixer": "^10.4.21",
+        "eslint": "^8.54.0",
+        "eslint-config-next": "14.0.0",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^3.4.17"
+    },
+    "engines": {
+        "node": ">=18.0.0",
+        "npm": ">=8.0.0"
+    }
+}
