@@ -13,7 +13,7 @@ export default function Home() {
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="keywords" content="Korean name generator, English to Korean names, AI name translator, Korean names" />
-        
+        <meta name="google-adsense-account" content="ca-pub-3827871880528575"></meta>
         {/* Open Graph Meta Tags */}
         <meta property="og:title" content="Korean Name Generator" />
         <meta property="og:description" content="Transform English names into beautiful Korean names using AI" />

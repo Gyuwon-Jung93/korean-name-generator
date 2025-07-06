@@ -817,7 +817,7 @@ const NameTranslator = () => {
               <p className="text-sm text-gray-600 mb-3">
                 💝 Enjoyed using this Korean Name Generator?
               </p>
-              <div className="flex justify-center">
+              <div className="flex justify-center mb-3">
                 <a 
                   href="https://www.buymeacoffee.com/gyuwonJung" 
                   target="_blank" 
@@ -831,9 +831,23 @@ const NameTranslator = () => {
                   />
                 </a>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-gray-500 mb-2">
                 ✨ Support the development of more awesome tools!
               </p>
+              {/* 🔗 NEW: LinkedIn Link */}
+              <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+                <span>Created by</span>
+                <a 
+                  href="https://www.linkedin.com/in/gyuwonjung/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 transition-colors underline"
+                >
+                  Gyuwon Jung
+                </a>
+                <span>•</span>
+                <span>💼 Connect on LinkedIn</span>
+              </div>
             </div>
           </div>
         </div>
