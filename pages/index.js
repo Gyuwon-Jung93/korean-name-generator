@@ -24,7 +24,8 @@ export default function Home() {
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Korean Name Generator" />
         <meta name="twitter:description" content="Transform English names into beautiful Korean names using AI" />
-        
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3827871880528575"
+     crossorigin="anonymous"></script>
         {/* Favicon */}
         <link rel="icon" href="/favicon.ico" />
         
