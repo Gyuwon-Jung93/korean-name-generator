@@ -9,19 +9,19 @@ class KoreanNameCache {
         this.expiryTime = 24 * 60 * 60 * 1000; // 24 hours
     }
 
-    get(englishName) {
+    get(englishName, gender) {
         if (typeof window === 'undefined') return null;
 
         try {
             const cache = JSON.parse(localStorage.getItem(this.cacheKey) || '{}');
-            const key = this.normalizeKey(englishName);
+            const key = this.normalizeKey(englishName, gender);
             const item = cache[key];
 
             if (!item) return null;
 
             // Check if expired
             if (Date.now() - item.timestamp > this.expiryTime) {
-                this.remove(englishName);
+                this.remove(englishName, gender);
                 return null;
             }
 
@@ -32,12 +32,12 @@ class KoreanNameCache {
         }
     }
 
-    set(englishName, translationResult) {
+    set(englishName, gender, translationResult) {
         if (typeof window === 'undefined') return;
 
         try {
             const cache = JSON.parse(localStorage.getItem(this.cacheKey) || '{}');
-            const key = this.normalizeKey(englishName);
+            const key = this.normalizeKey(englishName, gender);
 
             // Check cache size limit
             if (Object.keys(cache).length >= this.maxSize) {
@@ -48,6 +48,7 @@ class KoreanNameCache {
                 translation: translationResult,
                 timestamp: Date.now(),
                 englishName,
+                gender,
             };
 
             localStorage.setItem(this.cacheKey, JSON.stringify(cache));
@@ -56,26 +57,26 @@ class KoreanNameCache {
         }
     }
 
-    // 🌟 NEW: Favorites functionality
-    addToFavorites(englishName, koreanResult) {
+    addToFavorites(englishName, gender, koreanResult) {
         if (typeof window === 'undefined') return;
 
         try {
             const favorites = JSON.parse(localStorage.getItem(this.favoritesKey) || '[]');
 
             // Check if already exists
-            const exists = favorites.some((fav) => fav.english === englishName);
+            const exists = favorites.some((fav) => fav.english === englishName && fav.gender === gender);
             if (exists) return false;
 
             const favoriteItem = {
                 id: Date.now(),
                 english: englishName,
+                gender: gender,
                 korean: koreanResult,
                 savedAt: new Date().toISOString(),
                 timestamp: Date.now(),
             };
 
-            favorites.unshift(favoriteItem); // Add to beginning
+            favorites.unshift(favoriteItem);
 
             // Limit to 20 favorites
             if (favorites.length > 20) {
@@ -90,12 +91,12 @@ class KoreanNameCache {
         }
     }
 
-    removeFromFavorites(englishName) {
+    removeFromFavorites(englishName, gender) {
         if (typeof window === 'undefined') return;
 
         try {
             const favorites = JSON.parse(localStorage.getItem(this.favoritesKey) || '[]');
-            const filtered = favorites.filter((fav) => fav.english !== englishName);
+            const filtered = favorites.filter((fav) => !(fav.english === englishName && fav.gender === gender));
             localStorage.setItem(this.favoritesKey, JSON.stringify(filtered));
             return true;
         } catch (error) {
@@ -116,26 +117,27 @@ class KoreanNameCache {
         }
     }
 
-    isFavorite(englishName) {
-        if (typeof window === 'undefined') return false;
-
-        try {
-            const favorites = JSON.parse(localStorage.getItem(this.favoritesKey) || '[]');
-            return favorites.some((fav) => fav.english === englishName);
-        } catch (error) {
-            return false;
-        }
+    normalizeKey(englishName, gender) {
+        return `${englishName.toLowerCase().trim().replace(/\s+/g, '_')}_${gender}`;
     }
 
-    normalizeKey(englishName) {
-        return englishName.toLowerCase().trim().replace(/\s+/g, '_');
+    remove(englishName, gender) {
+        if (typeof window === 'undefined') return;
+
+        try {
+            const cache = JSON.parse(localStorage.getItem(this.cacheKey) || '{}');
+            const key = this.normalizeKey(englishName, gender);
+            delete cache[key];
+            localStorage.setItem(this.cacheKey, JSON.stringify(cache));
+        } catch (error) {
+            console.warn('Cache remove error:', error);
+        }
     }
 
     clearOldest(cache) {
         const entries = Object.entries(cache);
         entries.sort(([, a], [, b]) => a.timestamp - b.timestamp);
 
-        // Remove oldest 10 entries
         const toDelete = entries.slice(0, 10);
         toDelete.forEach(([key]) => delete cache[key]);
     }
@@ -147,6 +149,7 @@ class KoreanNameCache {
             const cache = JSON.parse(localStorage.getItem(this.cacheKey) || '{}');
             return Object.values(cache).map((item) => ({
                 english: item.englishName,
+                gender: item.gender,
                 korean: item.translation?.korean?.fullName || 'N/A',
                 cached: new Date(item.timestamp).toLocaleString(),
             }));
@@ -161,6 +164,7 @@ const nameCache = new KoreanNameCache();
 const NameTranslator = () => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
+    const [selectedGender, setSelectedGender] = useState('male'); // 새로 추가된 상태
     const [result, setResult] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -187,7 +191,7 @@ const NameTranslator = () => {
         setFavorites(favs);
     }, []);
 
-    const translateName = async (fullName, forceNew = false) => {
+    const translateName = async (fullName, gender, forceNew = false) => {
         if (!fullName.trim()) {
             setResult(null);
             setError('');
@@ -196,8 +200,7 @@ const NameTranslator = () => {
 
         // Check cache first
         if (!forceNew) {
-            // Check cache first
-            const cached = nameCache.get(fullName);
+            const cached = nameCache.get(fullName, gender);
             if (cached) {
                 setResult(cached);
                 setFromCache(true);
@@ -211,7 +214,7 @@ const NameTranslator = () => {
         setFromCache(false);
 
         try {
-            const requestData = { englishName: fullName };
+            const requestData = { englishName: fullName, gender: gender };
             console.log('🚀 API Request Data:', requestData);
 
             const response = await fetch('/api/translate', {
@@ -240,23 +243,26 @@ const NameTranslator = () => {
                         givenName: data.korean.givenName?.korean
                             ? data.korean.givenName
                             : {
-                                  korean: data.korean.givenName || '민서',
-                                  hanja: '敏瑞',
-                                  meaning: 'smart + auspicious',
-                                  overall_meaning: 'intelligent and blessed',
+                                  korean: data.korean.givenName || (gender === 'male' ? '준서' : '민서'),
+                                  hanja: gender === 'male' ? '俊徐' : '敏瑞',
+                                  meaning: gender === 'male' ? 'handsome + calm' : 'smart + auspicious',
+                                  overall_meaning: gender === 'male' ? 'handsome and calm' : 'intelligent and blessed',
                               },
                         fullName:
                             data.korean.fullName ||
                             (data.korean.surname?.korean || data.korean.surname || '김') +
-                                (data.korean.givenName?.korean || data.korean.givenName || '민서'),
+                                (data.korean.givenName?.korean ||
+                                    data.korean.givenName ||
+                                    (gender === 'male' ? '준서' : '민서')),
                         fullHanja:
                             data.korean.fullHanja ||
-                            (data.korean.surname?.hanja || '金') + (data.korean.givenName?.hanja || '敏瑞'),
+                            (data.korean.surname?.hanja || '金') +
+                                (data.korean.givenName?.hanja || (gender === 'male' ? '俊徐' : '敏瑞')),
                     },
                 };
 
                 setResult(processedResult);
-                nameCache.set(fullName, processedResult);
+                nameCache.set(fullName, gender, processedResult);
                 const updated = nameCache.getAllCached().slice(0, 5);
                 setRecentTranslations(updated);
             } else {
@@ -272,7 +278,6 @@ const NameTranslator = () => {
         }
     };
 
-    // Manual create button handler
     const handleCreateName = () => {
         if (!firstName.trim()) {
             setError('Please enter a first name');
@@ -280,15 +285,14 @@ const NameTranslator = () => {
         }
 
         const fullName = lastName.trim() ? `${firstName.trim()} ${lastName.trim()}` : firstName.trim();
-
-        console.log('🎯 Create Button Clicked:', fullName);
-        translateName(fullName);
+        console.log('🎯 Create Button Clicked:', fullName, 'Gender:', selectedGender);
+        translateName(fullName, selectedGender);
     };
 
     const handleGenerateAgain = () => {
         if (result?.english?.fullName) {
-            console.log('🔄 Regenerating (force new) for:', result.english.fullName);
-            translateName(result.english.fullName, true); // 🔑 forceNew = true
+            console.log('🔄 Regenerating (force new) for:', result.english.fullName, 'Gender:', selectedGender);
+            translateName(result.english.fullName, selectedGender, true);
         } else if (firstName.trim()) {
             handleCreateName();
         } else {
@@ -296,22 +300,20 @@ const NameTranslator = () => {
         }
     };
 
-    //name input rule
     const handleFirstNameChange = (e) => {
         const value = e.target.value;
         if (value === '' || /^[a-zA-Z\s\-']*$/.test(value)) {
-            setFirstName(value.slice(0, 15)); // 15 letters
+            setFirstName(value.slice(0, 15));
         }
     };
 
     const handleLastNameChange = (e) => {
         const value = e.target.value;
         if (value === '' || /^[a-zA-Z\s\-']*$/.test(value)) {
-            setLastName(value.slice(0, 15)); // 15 letters
+            setLastName(value.slice(0, 15));
         }
     };
 
-    // Handle Enter key press
     const handleKeyPress = (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -319,12 +321,11 @@ const NameTranslator = () => {
         }
     };
 
-    // 🌟 NEW: Add to favorites
     const handleAddToFavorites = () => {
         if (!result) return;
 
         const fullName = result.english.fullName;
-        const success = nameCache.addToFavorites(fullName, result.korean);
+        const success = nameCache.addToFavorites(fullName, selectedGender, result.korean);
 
         if (success) {
             const updatedFavorites = nameCache.getFavorites();
@@ -335,20 +336,19 @@ const NameTranslator = () => {
         }
     };
 
-    // 🌟 NEW: Remove from favorites
-    const handleRemoveFromFavorites = (englishName) => {
-        const success = nameCache.removeFromFavorites(englishName);
+    const handleRemoveFromFavorites = (englishName, gender) => {
+        const success = nameCache.removeFromFavorites(englishName, gender);
         if (success) {
             const updatedFavorites = nameCache.getFavorites();
             setFavorites(updatedFavorites);
         }
     };
 
-    // 🌟 NEW: Load favorite
     const loadFavorite = (favorite) => {
         const parts = favorite.english.split(' ');
         setFirstName(parts[0] || '');
         setLastName(parts.slice(1).join(' ') || '');
+        setSelectedGender(favorite.gender);
         setResult({
             success: true,
             english: {
@@ -357,6 +357,7 @@ const NameTranslator = () => {
                 fullName: favorite.english,
             },
             korean: favorite.korean,
+            gender: favorite.gender,
             model: 'cached-favorite',
             timestamp: favorite.savedAt,
             cached: true,
@@ -365,7 +366,6 @@ const NameTranslator = () => {
         setShowFavorites(false);
     };
 
-    // Speech synthesis function
     const speakKoreanName = (koreanText, lang = 'ko-KR') => {
         if (!speechSupported) {
             alert('Speech synthesis is not supported in your browser');
@@ -415,10 +415,11 @@ const NameTranslator = () => {
         setFromCache(false);
     };
 
-    const loadExample = (exampleName) => {
+    const loadExample = (exampleName, gender) => {
         const parts = exampleName.split(' ');
         setFirstName(parts[0] || '');
         setLastName(parts.slice(1).join(' ') || '');
+        setSelectedGender(gender);
     };
 
     const copyToClipboard = async (text) => {
@@ -450,17 +451,17 @@ const NameTranslator = () => {
     const getGivenName = (result) => {
         if (result?.korean?.givenName?.korean) return result.korean.givenName.korean;
         if (result?.korean?.givenName) return result.korean.givenName;
-        return '민서';
+        return selectedGender === 'male' ? '준서' : '민서';
     };
 
     const getGivenNameHanja = (result) => {
         if (result?.korean?.givenName?.hanja) return result.korean.givenName.hanja;
-        return '敏瑞';
+        return selectedGender === 'male' ? '俊徐' : '敏瑞';
     };
 
     const getGivenNameMeaning = (result) => {
         if (result?.korean?.givenName?.meaning) return result.korean.givenName.meaning;
-        return 'smart + auspicious';
+        return selectedGender === 'male' ? 'handsome + calm' : 'smart + auspicious';
     };
 
     const getFullName = (result) => {
@@ -473,6 +474,13 @@ const NameTranslator = () => {
         return getSurnameHanja(result) + getGivenNameHanja(result);
     };
 
+    // 성별별 예시 이름들
+    const maleExamples = ['Michael Johnson', 'David Smith', 'James Brown', 'Robert Wilson'];
+
+    const femaleExamples = ["Kelly O'connell", 'Emma Watson', 'Sarah Davis', 'Jennifer Miller'];
+
+    const currentExamples = selectedGender === 'male' ? maleExamples : femaleExamples;
+
     return (
         <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
             {/* Header */}
@@ -481,10 +489,48 @@ const NameTranslator = () => {
                 <p className="text-gray-600">Transform English names into beautiful Korean names using AI</p>
             </div>
 
+            {/* 🆕 Gender Selection Tabs */}
+            <div className="mb-6">
+                <div className="flex bg-gray-100 rounded-lg p-1 mb-4">
+                    <button
+                        onClick={() => setSelectedGender('male')}
+                        className={`flex-1 py-2 px-4 rounded-md font-medium transition-all duration-200 ${
+                            selectedGender === 'male'
+                                ? 'bg-blue-500 text-white shadow-sm'
+                                : 'text-gray-600 hover:text-gray-800'
+                        }`}
+                    >
+                        👨 Male Names
+                    </button>
+                    <button
+                        onClick={() => setSelectedGender('female')}
+                        className={`flex-1 py-2 px-4 rounded-md font-medium transition-all duration-200 ${
+                            selectedGender === 'female'
+                                ? 'bg-pink-500 text-white shadow-sm'
+                                : 'text-gray-600 hover:text-gray-800'
+                        }`}
+                    >
+                        👩 Female Names
+                    </button>
+                </div>
+
+                {/* Gender Info */}
+                <div
+                    className={`p-3 rounded-lg border-l-4 ${
+                        selectedGender === 'male' ? 'bg-blue-50 border-blue-400' : 'bg-pink-50 border-pink-400'
+                    }`}
+                >
+                    <p className={`text-sm ${selectedGender === 'male' ? 'text-blue-700' : 'text-pink-700'}`}>
+                        {selectedGender === 'male'
+                            ? '👨 Generating masculine Korean names with strong, traditional meanings'
+                            : '👩 Generating feminine Korean names with elegant, beautiful meanings'}
+                    </p>
+                </div>
+            </div>
+
             {/* Input Section */}
             <div className="mb-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    {/* First Name Input */}
                     <div>
                         <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
                             <b>First Name (English letters only)</b>
@@ -495,7 +541,7 @@ const NameTranslator = () => {
                             value={firstName}
                             onChange={handleFirstNameChange}
                             onKeyPress={handleKeyPress}
-                            placeholder="e.g., Kelly, Michael"
+                            placeholder={selectedGender === 'male' ? 'e.g., Michael, David' : 'e.g., Kelly, Emma'}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             maxLength={15}
                         />
@@ -512,7 +558,7 @@ const NameTranslator = () => {
                             value={lastName}
                             onChange={handleLastNameChange}
                             onKeyPress={handleKeyPress}
-                            placeholder="e.g., O'connell, Johns"
+                            placeholder={selectedGender === 'male' ? 'e.g., Johnson, Smith' : "e.g., O'connell, Watson"}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             maxLength={15}
                         />
@@ -525,7 +571,11 @@ const NameTranslator = () => {
                     <button
                         onClick={handleCreateName}
                         disabled={!firstName.trim() || isLoading}
-                        className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        className={`flex-1 py-3 px-6 rounded-lg font-medium text-white transition-all duration-200 focus:ring-2 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed ${
+                            selectedGender === 'male'
+                                ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+                                : 'bg-pink-600 hover:bg-pink-700 focus:ring-pink-500'
+                        }`}
                     >
                         {isLoading ? (
                             <span className="flex items-center justify-center">
@@ -552,7 +602,7 @@ const NameTranslator = () => {
                                 Creating...
                             </span>
                         ) : (
-                            '✨ Create Korean Name'
+                            `✨ Create ${selectedGender === 'male' ? 'Male' : 'Female'} Korean Name`
                         )}
                     </button>
 
@@ -572,7 +622,7 @@ const NameTranslator = () => {
                 </div>
             </div>
 
-            {/* 🌟 NEW: Favorites Panel */}
+            {/* 🆕 Favorites Panel - Updated with gender info */}
             {showFavorites && (
                 <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                     <h3 className="text-sm font-semibold text-yellow-800 mb-3">⭐ Your Favorite Korean Names</h3>
@@ -585,6 +635,9 @@ const NameTranslator = () => {
                                 >
                                     <button onClick={() => loadFavorite(favorite)} className="flex-1 text-left">
                                         <div className="flex items-center gap-2">
+                                            <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                                {favorite.gender === 'male' ? '👨' : '👩'}
+                                            </span>
                                             <span className="text-sm text-gray-700">{favorite.english}</span>
                                             <span className="text-sm text-yellow-600">→</span>
                                             <span className="text-sm font-medium text-yellow-800 korean-text">
@@ -593,7 +646,7 @@ const NameTranslator = () => {
                                         </div>
                                     </button>
                                     <button
-                                        onClick={() => handleRemoveFromFavorites(favorite.english)}
+                                        onClick={() => handleRemoveFromFavorites(favorite.english, favorite.gender)}
                                         className="text-red-500 hover:text-red-700 text-xs ml-2"
                                         title="Remove from favorites"
                                     >
@@ -610,15 +663,29 @@ const NameTranslator = () => {
                 </div>
             )}
 
-            {/* Quick Examples */}
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="text-sm font-semibold text-blue-800 mb-3">💡 Try these examples:</h3>
+            {/* 🆕 Quick Examples - Updated with gender-specific examples */}
+            <div
+                className={`mb-6 p-4 rounded-lg border ${
+                    selectedGender === 'male' ? 'bg-blue-50 border-blue-200' : 'bg-pink-50 border-pink-200'
+                }`}
+            >
+                <h3
+                    className={`text-sm font-semibold mb-3 ${
+                        selectedGender === 'male' ? 'text-blue-800' : 'text-pink-800'
+                    }`}
+                >
+                    💡 Try these {selectedGender} examples:
+                </h3>
                 <div className="grid grid-cols-2 gap-2">
-                    {["Kelly O'connell", 'Michael Johnson', 'Emma Watson', 'David Smith'].map((example, index) => (
+                    {currentExamples.map((example, index) => (
                         <button
                             key={index}
-                            onClick={() => loadExample(example)}
-                            className="text-left p-2 text-sm text-blue-700 hover:bg-blue-100 rounded transition-colors"
+                            onClick={() => loadExample(example, selectedGender)}
+                            className={`text-left p-2 text-sm rounded transition-colors ${
+                                selectedGender === 'male'
+                                    ? 'text-blue-700 hover:bg-blue-100'
+                                    : 'text-pink-700 hover:bg-pink-100'
+                            }`}
                         >
                             {example}
                         </button>
@@ -634,10 +701,15 @@ const NameTranslator = () => {
                         {recentTranslations.map((item, index) => (
                             <button
                                 key={index}
-                                onClick={() => loadExample(item.english)}
-                                className="w-full text-left p-2 text-sm hover:bg-gray-100 rounded transition-colors flex justify-between"
+                                onClick={() => loadExample(item.english, item.gender)}
+                                className="w-full text-left p-2 text-sm hover:bg-gray-100 rounded transition-colors flex justify-between items-center"
                             >
-                                <span>{item.english}</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                        {item.gender === 'male' ? '👨' : '👩'}
+                                    </span>
+                                    <span>{item.english}</span>
+                                </div>
                                 <span className="korean-text text-gray-600">{item.korean}</span>
                             </button>
                         ))}
@@ -649,7 +721,7 @@ const NameTranslator = () => {
             {isLoading && (
                 <div className="text-center py-8 fade-in">
                     <div className="loading-dots mx-auto mb-3"></div>
-                    <p className="text-gray-600">Generating Korean name...</p>
+                    <p className="text-gray-600">Generating {selectedGender} Korean name...</p>
                     <p className="text-sm text-gray-500 mt-1">Powered by Google Gemini AI</p>
                 </div>
             )}
@@ -666,16 +738,36 @@ const NameTranslator = () => {
 
             {/* Result Section */}
             {result && !isLoading && (
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 fade-in">
+                <div
+                    className={`border rounded-lg p-6 fade-in ${
+                        selectedGender === 'male'
+                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+                            : 'bg-gradient-to-r from-pink-50 to-purple-50 border-pink-200'
+                    }`}
+                >
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-blue-800">Generated Korean Name</h3>
+                        <h3
+                            className={`text-lg font-semibold ${
+                                selectedGender === 'male' ? 'text-blue-800' : 'text-pink-800'
+                            }`}
+                        >
+                            Generated {selectedGender === 'male' ? 'Male' : 'Female'} Korean Name
+                        </h3>
                         <div className="flex items-center gap-2">
                             {fromCache && (
                                 <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                                     ⚡ Cached
                                 </span>
                             )}
-                            {/* 🌟 NEW: Add to Favorites Button */}
+                            <span
+                                className={`text-xs px-2 py-1 rounded-full ${
+                                    selectedGender === 'male'
+                                        ? 'bg-blue-100 text-blue-800'
+                                        : 'bg-pink-100 text-pink-800'
+                                }`}
+                            >
+                                {selectedGender === 'male' ? '👨 Male' : '👩 Female'}
+                            </span>
                             <button
                                 onClick={handleAddToFavorites}
                                 className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full hover:bg-yellow-200 transition-colors"
@@ -685,7 +777,11 @@ const NameTranslator = () => {
                             </button>
                             <button
                                 onClick={() => copyToClipboard(getFullName(result))}
-                                className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full hover:bg-blue-200 transition-colors"
+                                className={`text-xs px-2 py-1 rounded-full transition-colors ${
+                                    selectedGender === 'male'
+                                        ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                        : 'bg-pink-100 text-pink-800 hover:bg-pink-200'
+                                }`}
                             >
                                 📋 Copy
                             </button>
@@ -698,7 +794,9 @@ const NameTranslator = () => {
                         <div className="bg-white p-3 rounded-md border">
                             <div className="text-sm text-gray-600 mb-1">English Name</div>
                             <div className="font-medium">
-                                <span className="text-blue-600">{result.english.firstName}</span>
+                                <span className={selectedGender === 'male' ? 'text-blue-600' : 'text-pink-600'}>
+                                    {result.english.firstName}
+                                </span>
                                 {result.english.surname && (
                                     <>
                                         <span className="mx-2 text-gray-400">•</span>
@@ -716,7 +814,9 @@ const NameTranslator = () => {
                                     <div className="korean-text text-2xl font-bold mb-1">
                                         <span className="text-green-600">{getSurname(result)}</span>
                                         <span className="mx-2 text-gray-400">•</span>
-                                        <span className="text-blue-600">{getGivenName(result)}</span>
+                                        <span className={selectedGender === 'male' ? 'text-blue-600' : 'text-pink-600'}>
+                                            {getGivenName(result)}
+                                        </span>
                                     </div>
                                     <div className="korean-text text-lg text-gray-700">{getFullName(result)}</div>
                                 </div>
@@ -727,7 +827,11 @@ const NameTranslator = () => {
                                         <button
                                             onClick={() => speakKoreanName(getFullName(result))}
                                             disabled={isSpeaking}
-                                            className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 transition-colors disabled:opacity-50"
+                                            className={`p-2 rounded-full transition-colors disabled:opacity-50 ${
+                                                selectedGender === 'male'
+                                                    ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                                                    : 'bg-pink-100 text-pink-600 hover:bg-pink-200'
+                                            }`}
                                             title="Listen to pronunciation"
                                         >
                                             {isSpeaking ? (
@@ -756,7 +860,9 @@ const NameTranslator = () => {
                                     <div className="text-xs text-gray-500 mb-1">Chinese Characters (Hanja)</div>
                                     <div className="text-xl font-bold text-gray-800 mb-2">
                                         <span className="text-green-700">{getSurnameHanja(result)}</span>
-                                        <span className="text-blue-700">{getGivenNameHanja(result)}</span>
+                                        <span className={selectedGender === 'male' ? 'text-blue-700' : 'text-pink-700'}>
+                                            {getGivenNameHanja(result)}
+                                        </span>
                                         <span className="text-sm text-gray-600 ml-2">({getFullHanja(result)})</span>
                                     </div>
                                 </div>
@@ -775,15 +881,39 @@ const NameTranslator = () => {
                                     </div>
 
                                     {/* Given Name Meaning */}
-                                    <div className="bg-blue-50 p-3 rounded-md">
-                                        <div className="text-xs font-medium text-blue-800 mb-1">Given Name</div>
+                                    <div
+                                        className={`p-3 rounded-md ${
+                                            selectedGender === 'male' ? 'bg-blue-50' : 'bg-pink-50'
+                                        }`}
+                                    >
+                                        <div
+                                            className={`text-xs font-medium mb-1 ${
+                                                selectedGender === 'male' ? 'text-blue-800' : 'text-pink-800'
+                                            }`}
+                                        >
+                                            Given Name ({selectedGender === 'male' ? 'Male' : 'Female'})
+                                        </div>
                                         <div className="text-sm">
-                                            <span className="font-semibold text-blue-700">
+                                            <span
+                                                className={`font-semibold ${
+                                                    selectedGender === 'male' ? 'text-blue-700' : 'text-pink-700'
+                                                }`}
+                                            >
                                                 {getGivenName(result)} ({getGivenNameHanja(result)})
                                             </span>
-                                            <div className="text-blue-600 mt-1">{getGivenNameMeaning(result)}</div>
+                                            <div
+                                                className={`mt-1 ${
+                                                    selectedGender === 'male' ? 'text-blue-600' : 'text-pink-600'
+                                                }`}
+                                            >
+                                                {getGivenNameMeaning(result)}
+                                            </div>
                                             {result.korean?.givenName?.overall_meaning && (
-                                                <div className="text-blue-500 text-xs mt-1 italic">
+                                                <div
+                                                    className={`text-xs mt-1 italic ${
+                                                        selectedGender === 'male' ? 'text-blue-500' : 'text-pink-500'
+                                                    }`}
+                                                >
                                                     Overall: {result.korean.givenName.overall_meaning}
                                                 </div>
                                             )}
@@ -795,9 +925,15 @@ const NameTranslator = () => {
 
                         {/* Translation Details */}
                         <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="bg-blue-100 p-2 rounded">
-                                <div className="text-blue-800 font-medium">Given Name</div>
-                                <div className="text-blue-600">
+                            <div className={`p-2 rounded ${selectedGender === 'male' ? 'bg-blue-100' : 'bg-pink-100'}`}>
+                                <div
+                                    className={`font-medium ${
+                                        selectedGender === 'male' ? 'text-blue-800' : 'text-pink-800'
+                                    }`}
+                                >
+                                    Given Name
+                                </div>
+                                <div className={selectedGender === 'male' ? 'text-blue-600' : 'text-pink-600'}>
                                     {result.english.firstName} → {getGivenName(result)}
                                 </div>
                             </div>
@@ -813,7 +949,11 @@ const NameTranslator = () => {
                         <div className="flex gap-2 pt-2">
                             <button
                                 onClick={handleGenerateAgain}
-                                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                                className={`flex-1 py-2 px-4 rounded-md text-white transition-colors text-sm font-medium ${
+                                    selectedGender === 'male'
+                                        ? 'bg-blue-600 hover:bg-blue-700'
+                                        : 'bg-pink-600 hover:bg-pink-700'
+                                }`}
                             >
                                 🔄 Generate Again
                             </button>
@@ -836,13 +976,21 @@ const NameTranslator = () => {
                     </div>
 
                     {/* Footer Info */}
-                    <div className="mt-4 pt-3 border-t border-blue-200 flex items-center justify-between text-xs text-gray-500">
+                    <div
+                        className={`mt-4 pt-3 border-t flex items-center justify-between text-xs text-gray-500 ${
+                            selectedGender === 'male' ? 'border-blue-200' : 'border-pink-200'
+                        }`}
+                    >
                         <span>Model: {result.model}</span>
                         <span>{new Date(result.timestamp).toLocaleTimeString()}</span>
                     </div>
 
-                    {/* 🌟 NEW: Buy Me a Coffee Section */}
-                    <div className="mt-6 pt-4 border-t border-blue-200">
+                    {/* Buy Me a Coffee Section */}
+                    <div
+                        className={`mt-6 pt-4 border-t ${
+                            selectedGender === 'male' ? 'border-blue-200' : 'border-pink-200'
+                        }`}
+                    >
                         <div className="text-center">
                             <p className="text-sm text-gray-600 mb-3">💝 Enjoyed using this Korean Name Generator?</p>
                             <div className="flex justify-center mb-3">
@@ -862,7 +1010,6 @@ const NameTranslator = () => {
                             <p className="text-xs text-gray-500 mb-2">
                                 ✨ Support the development of more awesome tools!
                             </p>
-                            {/* 🔗 NEW: LinkedIn Link */}
                             <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
                                 <span>Created by</span>
                                 <a
@@ -884,10 +1031,11 @@ const NameTranslator = () => {
             {/* Instructions */}
             {!firstName && !lastName && !result && (
                 <div className="text-center py-8 text-gray-500">
-                    <div className="text-4xl mb-3">🇰🇷</div>
-                    <p className="text-lg">Enter your English name to get started</p>
+                    <div className="text-4xl mb-3">{selectedGender === 'male' ? '👨🇰🇷' : '👩🇰🇷'}</div>
+                    <p className="text-lg">Enter your English name to get a {selectedGender} Korean name</p>
                     <p className="text-sm mt-2">
-                        Our AI will create a beautiful Korean name that captures the essence of your English name
+                        Our AI will create a beautiful {selectedGender} Korean name that captures the essence of your
+                        English name
                     </p>
                     {speechSupported && <p className="text-xs mt-2 text-blue-600">🔊 Voice pronunciation available</p>}
                     <p className="text-xs mt-2 text-gray-500">
