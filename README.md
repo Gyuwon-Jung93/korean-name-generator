@@ -235,7 +235,7 @@ korean-name-generator/
 
 ## 📝 Changelog
 
-### Version 7.0 - 7th July 2025
+### Version 5.0 - 7th July 2025
 
 #### 🆕 New Features
 
@@ -260,7 +260,7 @@ korean-name-generator/
 -   **성별별 예시**: 남자/여자 탭에 따른 다른 예시 이름들
 -   **색상 구분 UI**: 남자는 파란색, 여자는 분홍색 테마
 
-### Version 6.0 - 6th July 2025
+### Version 4.0 - 6th July 2025
 
 #### 🆕 Major Features
 
@@ -276,7 +276,7 @@ korean-name-generator/
 -   **Error Handling**: Improved error messages and fallback mechanisms
 -   **Performance Optimization**: Reduced API calls and faster loading times
 
-### Version 5.0 - 5th July 2025
+### Version 3.0 - 5th July 2025
 
 #### 🆕 Core Features
 
@@ -285,7 +285,7 @@ korean-name-generator/
 -   **Copy to Clipboard**: One-click copying of generated Korean names
 -   **Loading States**: Beautiful loading animations and progress indicators
 
-### Version 4.0 - 4th July 2025
+### Version 2.0 - 4th July 2025
 
 #### 🆕 Foundation Features
 
@@ -294,7 +294,7 @@ korean-name-generator/
 -   **Responsive Design**: Mobile-first design with Tailwind CSS
 -   **Basic Caching**: Initial localStorage implementation
 
-### Version 3.0 - 4th July 2025
+### Version 1.2 - 4th July 2025
 
 #### 🔧 Infrastructure
 
@@ -302,7 +302,7 @@ korean-name-generator/
 -   **API Routes**: Serverless function implementation
 -   **Vercel Deployment**: Production deployment setup
 
-### Version 2.0 - 3rd July 2025
+### Version 1.1 - 3rd July 2025
 
 #### 🎨 UI/UX Improvements
 
@@ -349,14 +349,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🚀 Future Features
 
 -   [ ] **Name Popularity**: Show trending Korean names by generation
+-   [ ]**Share Function**: Social media sharing with beautiful cards
 -   [ ] **Cultural Context**: Explain historical and cultural significance
 -   [ ] **Multiple Suggestions**: Provide 3-5 name options per generation
--   [ ] **Voice Input**: Speech-to-text name input
 -   [ ] **Share Function**: Social media sharing with beautiful cards
 -   [ ] **Name History**: Extended translation history with search
--   [ ] **API Access**: Public API for developers
 -   [ ] **Name Compatibility**: Analyze name harmony between family members
--   [ ] **Regional Variations**: Different Korean naming styles by region
 
 ---
 
