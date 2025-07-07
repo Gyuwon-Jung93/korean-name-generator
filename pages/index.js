@@ -33,6 +33,7 @@ export default function Home() {
                     name="twitter:description"
                     content="Transform English names into beautiful Korean names using AI"
                 />
+                <meta name="google-site-verification" content="tu4OYYsEbNDmAigHKkMV7-M_6hN7CyMD9ylX4stHhsU" />
                 {/* Favicon */}
                 <link rel="icon" href="/favicon.ico" />
 
